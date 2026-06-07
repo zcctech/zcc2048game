@@ -1,0 +1,1546 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>zcc2048game</title>
+  <style>
+    :root {
+      --bg: #06070c;
+      --panel: rgba(10, 16, 28, 0.76);
+      --panel-strong: rgba(13, 22, 38, 0.92);
+      --line: rgba(108, 238, 255, 0.22);
+      --text: #f4fbff;
+      --muted: #91a7ba;
+      --cyan: #32f6ff;
+      --pink: #ff3df2;
+      --lime: #8cff5f;
+      --gold: #ffd166;
+      --danger: #ff5470;
+      --cell: rgba(255, 255, 255, 0.06);
+      --tile-text-dark: #081018;
+      --tile-text-light: #faffff;
+      --radius: 8px;
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      color: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.38;
+    }
+
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(50, 246, 255, 0.22), transparent 28%),
+        radial-gradient(circle at 84% 18%, rgba(255, 61, 242, 0.2), transparent 26%),
+        radial-gradient(circle at 72% 86%, rgba(140, 255, 95, 0.14), transparent 32%),
+        linear-gradient(135deg, #05050a 0%, #08111d 44%, #100818 100%);
+    }
+
+    #matrix {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.64;
+    }
+
+    .scanlines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 100% 5px, 42px 100%;
+      mask-image: linear-gradient(to bottom, transparent, black 10%, black 88%, transparent);
+    }
+
+    .shell {
+      position: relative;
+      z-index: 1;
+      width: min(1120px, 100%);
+      min-height: min(760px, calc(100vh - 40px));
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(320px, 1fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .left-rail,
+    .stage {
+      min-width: 0;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: 0 0 28px rgba(50, 246, 255, 0.08), inset 0 0 36px rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(16px);
+    }
+
+    .left-rail {
+      border-radius: var(--radius);
+      padding: 20px;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: 18px;
+      min-height: 620px;
+    }
+
+    .left-rail > * {
+      min-width: 0;
+    }
+
+    .stage {
+      position: relative;
+      border-radius: var(--radius);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 620px;
+      overflow: hidden;
+    }
+
+    .brand {
+      display: grid;
+      gap: 8px;
+    }
+
+    .title {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 0;
+      font-size: clamp(38px, 4vw, 54px);
+      line-height: 0.9;
+      font-weight: 900;
+      text-transform: uppercase;
+      white-space: nowrap;
+      text-shadow: 0 0 18px color-mix(in srgb, var(--cyan) 64%, transparent);
+    }
+
+    .title span {
+      color: var(--cyan);
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .metric {
+      min-width: 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .metric-label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      display: block;
+      margin-top: 4px;
+      font-size: 24px;
+      font-weight: 850;
+      line-height: 1;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .metric-value.bump {
+      animation: bump 260ms ease-out;
+    }
+
+    @keyframes bump {
+      0% { transform: scale(1); }
+      42% { transform: scale(1.13); color: var(--lime); }
+      100% { transform: scale(1); }
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .control-group {
+      display: grid;
+      gap: 8px;
+    }
+
+    .control-title {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      padding: 4px;
+      min-width: 0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .segmented button {
+      min-height: 36px;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .segmented button.active {
+      color: #061017;
+      background: linear-gradient(135deg, var(--cyan), var(--lime));
+      box-shadow: 0 0 18px rgba(50, 246, 255, 0.26);
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .icon-button {
+      height: 42px;
+      border-radius: var(--radius);
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .icon-button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: color-mix(in srgb, var(--cyan) 68%, transparent);
+      box-shadow: 0 0 18px rgba(50, 246, 255, 0.18);
+    }
+
+    .icon-button svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .slider-row {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--cyan);
+    }
+
+    .status-panel {
+      align-self: end;
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 16px;
+    }
+
+    .status-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status-line strong {
+      color: var(--text);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .stage-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 20px 22px 0;
+    }
+
+    .core-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .core-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--lime);
+      box-shadow: 0 0 14px var(--lime);
+    }
+
+    .combo {
+      min-width: 132px;
+      text-align: right;
+      color: var(--gold);
+      font-size: 14px;
+      font-weight: 900;
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .combo.show {
+      animation: comboPulse 780ms ease-out;
+    }
+
+    @keyframes comboPulse {
+      0% { opacity: 0; transform: translateY(8px) scale(0.94); }
+      24% { opacity: 1; transform: translateY(0) scale(1.08); }
+      100% { opacity: 0; transform: translateY(-14px) scale(1); }
+    }
+
+    .board-wrap {
+      display: grid;
+      place-items: center;
+      padding: 18px 22px 20px;
+      touch-action: none;
+    }
+
+    .board {
+      --gap: clamp(8px, 2.1vw, 14px);
+      position: relative;
+      width: min(100%, 560px, calc(100vh - 180px));
+      aspect-ratio: 1;
+      border: 1px solid color-mix(in srgb, var(--cyan) 38%, transparent);
+      border-radius: var(--radius);
+      padding: var(--gap);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.015)),
+        repeating-linear-gradient(0deg, transparent 0 18px, rgba(50, 246, 255, 0.04) 18px 19px),
+        rgba(3, 8, 14, 0.86);
+      box-shadow: 0 0 40px rgba(50, 246, 255, 0.15), inset 0 0 26px rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+    }
+
+    .board::before,
+    .board::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+    }
+
+    .board::before {
+      background:
+        linear-gradient(90deg, transparent, rgba(50, 246, 255, 0.16), transparent),
+        linear-gradient(0deg, transparent, rgba(255, 61, 242, 0.09), transparent);
+      transform: translateX(-100%);
+      animation: boardSweep 5.2s linear infinite;
+    }
+
+    .board::after {
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 0 80px rgba(50, 246, 255, 0.045);
+    }
+
+    @keyframes boardSweep {
+      0% { transform: translateX(-110%); }
+      58% { transform: translateX(110%); }
+      100% { transform: translateX(110%); }
+    }
+
+    .cell-grid {
+      position: absolute;
+      inset: var(--gap);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: var(--gap);
+    }
+
+    .cell {
+      border-radius: 6px;
+      background: var(--cell);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: inset 0 0 16px rgba(255, 255, 255, 0.03);
+    }
+
+    .tile-layer {
+      position: absolute;
+      inset: var(--gap);
+      z-index: 2;
+    }
+
+    .tile {
+      position: absolute;
+      width: calc((100% - (3 * var(--gap))) / 4);
+      height: calc((100% - (3 * var(--gap))) / 4);
+      left: calc(var(--x) * ((100% - (3 * var(--gap))) / 4 + var(--gap)));
+      top: calc(var(--y) * ((100% - (3 * var(--gap))) / 4 + var(--gap)));
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      color: var(--tile-color);
+      background: var(--tile-bg);
+      border: 1px solid var(--tile-line);
+      box-shadow: 0 0 16px var(--tile-glow), inset 0 0 12px rgba(255, 255, 255, 0.16);
+      font-weight: 950;
+      font-size: var(--tile-size, clamp(24px, 6.6vw, 48px));
+      transition: left 130ms ease, top 130ms ease, transform 130ms ease, box-shadow 130ms ease;
+      user-select: none;
+    }
+
+    .tile.new {
+      animation: appear 180ms ease-out;
+    }
+
+    .tile.merged {
+      animation: merge 230ms ease-out;
+    }
+
+    .tile.big {
+      text-shadow: 0 0 12px rgba(255, 255, 255, 0.38);
+      animation: breathe 1.8s ease-in-out infinite;
+    }
+
+    @keyframes appear {
+      0% { opacity: 0; transform: scale(0.36); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes merge {
+      0% { transform: scale(1); }
+      42% { transform: scale(1.18); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes breathe {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.16); }
+    }
+
+    .stage-footer {
+      min-height: 74px;
+      padding: 0 22px 20px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 12px;
+    }
+
+    .event-feed {
+      min-height: 42px;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: end;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      min-height: 30px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 6px 9px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .badge.accent {
+      color: #061017;
+      background: linear-gradient(135deg, var(--gold), var(--lime));
+      box-shadow: 0 0 18px rgba(255, 209, 102, 0.2);
+    }
+
+    .mini-stats {
+      display: flex;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .toast-stack {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 5;
+      display: grid;
+      gap: 10px;
+      width: min(320px, calc(100vw - 36px));
+      pointer-events: none;
+    }
+
+    .toast {
+      border-radius: var(--radius);
+      border: 1px solid color-mix(in srgb, var(--cyan) 38%, transparent);
+      background: rgba(5, 12, 20, 0.92);
+      box-shadow: 0 0 28px rgba(50, 246, 255, 0.16);
+      padding: 12px;
+      animation: toastIn 2.8s ease forwards;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    @keyframes toastIn {
+      0% { opacity: 0; transform: translateY(14px); }
+      12%, 82% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-12px); }
+    }
+
+    .modal {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: none;
+      place-items: center;
+      padding: 22px;
+      background: rgba(2, 6, 12, 0.68);
+      backdrop-filter: blur(10px);
+    }
+
+    .modal.show {
+      display: grid;
+    }
+
+    .modal-card {
+      width: min(420px, 100%);
+      border-radius: var(--radius);
+      border: 1px solid color-mix(in srgb, var(--cyan) 45%, transparent);
+      background: var(--panel-strong);
+      box-shadow: 0 0 34px rgba(50, 246, 255, 0.18), inset 0 0 36px rgba(255, 255, 255, 0.035);
+      padding: 20px;
+    }
+
+    .modal-title {
+      margin: 0 0 10px;
+      font-size: 28px;
+      line-height: 1.08;
+      text-transform: uppercase;
+    }
+
+    .modal-copy {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 0 0 16px;
+    }
+
+    .result-item {
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .result-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .result-item strong {
+      display: block;
+      margin-top: 4px;
+      color: var(--text);
+      font-size: 18px;
+    }
+
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .primary,
+    .secondary {
+      min-height: 42px;
+      border-radius: var(--radius);
+      font-weight: 900;
+    }
+
+    .primary {
+      color: #061017;
+      background: linear-gradient(135deg, var(--cyan), var(--lime));
+      box-shadow: 0 0 22px rgba(50, 246, 255, 0.24);
+    }
+
+    .secondary {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+    }
+
+    .vis-high .board,
+    .vis-high .left-rail,
+    .vis-high .stage {
+      box-shadow: 0 0 44px rgba(50, 246, 255, 0.18), 0 0 72px rgba(255, 61, 242, 0.11), inset 0 0 42px rgba(255, 255, 255, 0.035);
+    }
+
+    .vis-terminal {
+      --cyan: #8cff5f;
+      --pink: #ffd166;
+      --lime: #32f6ff;
+      --line: rgba(140, 255, 95, 0.24);
+    }
+
+    .vis-terminal .backdrop {
+      background:
+        radial-gradient(circle at 20% 16%, rgba(140, 255, 95, 0.16), transparent 30%),
+        radial-gradient(circle at 80% 80%, rgba(50, 246, 255, 0.14), transparent 30%),
+        linear-gradient(135deg, #030805 0%, #07140d 50%, #100b05 100%);
+    }
+
+    @media (max-width: 860px) {
+      body {
+        padding: 12px;
+        place-items: start center;
+      }
+
+      .shell {
+        grid-template-columns: 1fr;
+        min-height: 0;
+        gap: 12px;
+      }
+
+      .left-rail,
+      .stage {
+        min-height: 0;
+      }
+
+      .left-rail {
+        padding: 16px;
+        grid-template-rows: auto auto auto auto;
+      }
+
+      .status-panel {
+        display: none;
+      }
+
+      .stage-header {
+        padding: 14px 14px 0;
+      }
+
+      .board-wrap {
+        padding: 12px 14px 14px;
+      }
+
+      .board {
+        width: min(100%, calc(100vw - 52px));
+      }
+
+      .stage-footer {
+        padding: 0 14px 14px;
+        grid-template-columns: 1fr;
+      }
+
+      .mini-stats {
+        justify-content: space-between;
+      }
+    }
+
+    @media (max-width: 520px) {
+      body {
+        padding: 8px;
+      }
+
+      .left-rail {
+        gap: 12px;
+      }
+
+      .title {
+        font-size: clamp(34px, 12vw, 44px);
+      }
+
+      .metrics {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .metric {
+        padding: 10px 8px;
+      }
+
+      .metric-value {
+        font-size: 20px;
+      }
+
+      .segmented button {
+        min-height: 34px;
+        font-size: 12px;
+      }
+
+      .board {
+        --gap: 8px;
+        width: min(100%, calc(100vw - 36px));
+      }
+
+      .tile {
+        border-radius: 6px;
+        font-size: var(--tile-size, clamp(22px, 9vw, 40px));
+      }
+
+      .modal-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .result-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body class="vis-high">
+  <div class="backdrop" aria-hidden="true">
+    <canvas id="matrix"></canvas>
+    <div class="scanlines"></div>
+  </div>
+
+  <main class="shell">
+    <aside class="left-rail">
+      <section class="brand">
+        <h1 class="title">NEON <span>2048</span></h1>
+        <p class="subtitle">zcc2048game cyber puzzle</p>
+      </section>
+
+      <section class="metrics" aria-label="计分">
+        <div class="metric">
+          <span class="metric-label">Score</span>
+          <span class="metric-value" id="score">0</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Best</span>
+          <span class="metric-value" id="best">0</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Undo</span>
+          <span class="metric-value" id="undoLeft">0</span>
+        </div>
+      </section>
+
+      <section class="controls" aria-label="设置">
+        <div class="control-group">
+          <span class="control-title">难度</span>
+          <div class="segmented" id="difficultyGroup">
+            <button type="button" data-difficulty="easy">简单</button>
+            <button type="button" data-difficulty="normal">普通</button>
+            <button type="button" data-difficulty="hard">困难</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-title">方向</span>
+          <div class="segmented" id="visualGroup">
+            <button type="button" data-visual="vis-cool">冷光</button>
+            <button type="button" data-visual="vis-high">高能</button>
+            <button type="button" data-visual="vis-terminal">终端</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-title">操作</span>
+          <div class="action-row">
+            <button class="icon-button" id="newGame" type="button" aria-label="重新开始" title="重新开始">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>
+            </button>
+            <button class="icon-button" id="undo" type="button" aria-label="撤销" title="撤销">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 1 1 0 12h-1"/></svg>
+            </button>
+            <button class="icon-button" id="mute" type="button" aria-label="声音" title="声音">
+              <svg id="soundOnIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15 9.5a4 4 0 0 1 0 5"/><path d="M18 7a8 8 0 0 1 0 10"/></svg>
+              <svg id="soundOffIcon" viewBox="0 0 24 24" aria-hidden="true" style="display:none"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M22 9 16 15"/><path d="m16 9 6 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-title">音量</span>
+          <div class="slider-row">
+            <span class="badge" id="volumeText">70</span>
+            <input id="volume" type="range" min="0" max="100" value="70" aria-label="音量">
+          </div>
+        </div>
+      </section>
+
+      <section class="status-panel" aria-label="状态">
+        <div class="status-line"><span>模式</span><strong id="modeText">普通</strong></div>
+        <div class="status-line"><span>最大方块</span><strong id="maxTile">2</strong></div>
+        <div class="status-line"><span>步数</span><strong id="moves">0</strong></div>
+        <div class="status-line"><span>用时</span><strong id="time">00:00</strong></div>
+      </section>
+    </aside>
+
+    <section class="stage">
+      <header class="stage-header">
+        <span class="core-label"><span class="core-dot"></span><span id="stateText">CORE ONLINE</span></span>
+        <span class="combo" id="combo"></span>
+      </header>
+
+      <div class="board-wrap" id="boardWrap">
+        <div class="board" id="board" aria-label="2048 棋盘" role="application">
+          <div class="cell-grid" aria-hidden="true">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+          <div class="tile-layer" id="tileLayer"></div>
+        </div>
+      </div>
+
+      <footer class="stage-footer">
+        <div class="event-feed" id="eventFeed"></div>
+        <div class="mini-stats">
+          <span id="targetText">TARGET 2048</span>
+          <span id="soundText">AUDIO ON</span>
+        </div>
+      </footer>
+
+      <div class="modal" id="modal" aria-live="polite">
+        <div class="modal-card">
+          <h2 class="modal-title" id="modalTitle">CORE ONLINE</h2>
+          <p class="modal-copy" id="modalCopy"></p>
+          <div class="result-grid">
+            <div class="result-item"><span>Score</span><strong id="resultScore">0</strong></div>
+            <div class="result-item"><span>Max</span><strong id="resultMax">0</strong></div>
+            <div class="result-item"><span>Moves</span><strong id="resultMoves">0</strong></div>
+            <div class="result-item"><span>Time</span><strong id="resultTime">00:00</strong></div>
+          </div>
+          <div class="modal-actions">
+            <button class="primary" id="modalPrimary" type="button">继续挑战</button>
+            <button class="secondary" id="modalSecondary" type="button">新游戏</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <script>
+    const SIZE = 4;
+    const TARGET = 2048;
+    const STORAGE_PREFIX = "neon2048";
+    const DIFFICULTIES = {
+      easy: { label: "简单", fourChance: 0.04, undo: 3 },
+      normal: { label: "普通", fourChance: 0.1, undo: 1 },
+      hard: { label: "困难", fourChance: 0.25, undo: 0 }
+    };
+
+    const TILE_STYLES = {
+      2: ["#d8fbff", "#061017", "rgba(50,246,255,0.42)", "rgba(50,246,255,0.25)"],
+      4: ["#a7fff0", "#061017", "rgba(140,255,95,0.42)", "rgba(140,255,95,0.24)"],
+      8: ["#f7ff72", "#101006", "rgba(247,255,114,0.5)", "rgba(247,255,114,0.28)"],
+      16: ["#ffd166", "#130d04", "rgba(255,209,102,0.54)", "rgba(255,209,102,0.3)"],
+      32: ["#ff8e3c", "#160a03", "rgba(255,142,60,0.58)", "rgba(255,142,60,0.34)"],
+      64: ["#ff5470", "#180309", "rgba(255,84,112,0.62)", "rgba(255,84,112,0.38)"],
+      128: ["#ff3df2", "#1a0418", "rgba(255,61,242,0.66)", "rgba(255,61,242,0.42)"],
+      256: ["#b16cff", "#08030f", "rgba(177,108,255,0.66)", "rgba(177,108,255,0.44)"],
+      512: ["#32f6ff", "#021015", "rgba(50,246,255,0.72)", "rgba(50,246,255,0.48)"],
+      1024: ["#8cff5f", "#061105", "rgba(140,255,95,0.76)", "rgba(140,255,95,0.5)"],
+      2048: ["#ffffff", "#030408", "rgba(255,255,255,0.82)", "rgba(255,209,102,0.72)"]
+    };
+
+    const ACHIEVEMENTS = [
+      { id: "first512", test: s => s.max >= 512, label: "512 NODE" },
+      { id: "first1024", test: s => s.max >= 1024, label: "1024 CORE" },
+      { id: "winNoUndo", test: s => s.max >= TARGET && s.undoUsed === 0, label: "NO UNDO CLEAR" },
+      { id: "combo3", test: s => s.lastMergeCount >= 3, label: "COMBO x3" }
+    ];
+
+    const els = {
+      body: document.body,
+      board: document.getElementById("board"),
+      boardWrap: document.getElementById("boardWrap"),
+      tileLayer: document.getElementById("tileLayer"),
+      score: document.getElementById("score"),
+      best: document.getElementById("best"),
+      undoLeft: document.getElementById("undoLeft"),
+      modeText: document.getElementById("modeText"),
+      maxTile: document.getElementById("maxTile"),
+      moves: document.getElementById("moves"),
+      time: document.getElementById("time"),
+      stateText: document.getElementById("stateText"),
+      combo: document.getElementById("combo"),
+      eventFeed: document.getElementById("eventFeed"),
+      difficultyGroup: document.getElementById("difficultyGroup"),
+      visualGroup: document.getElementById("visualGroup"),
+      newGame: document.getElementById("newGame"),
+      undo: document.getElementById("undo"),
+      mute: document.getElementById("mute"),
+      soundOnIcon: document.getElementById("soundOnIcon"),
+      soundOffIcon: document.getElementById("soundOffIcon"),
+      volume: document.getElementById("volume"),
+      volumeText: document.getElementById("volumeText"),
+      soundText: document.getElementById("soundText"),
+      modal: document.getElementById("modal"),
+      modalTitle: document.getElementById("modalTitle"),
+      modalCopy: document.getElementById("modalCopy"),
+      resultScore: document.getElementById("resultScore"),
+      resultMax: document.getElementById("resultMax"),
+      resultMoves: document.getElementById("resultMoves"),
+      resultTime: document.getElementById("resultTime"),
+      modalPrimary: document.getElementById("modalPrimary"),
+      modalSecondary: document.getElementById("modalSecondary"),
+      toastStack: document.getElementById("toastStack")
+    };
+
+    let audioCtx = null;
+    let muted = localStorage.getItem(`${STORAGE_PREFIX}:muted`) === "true";
+    let volume = Number(localStorage.getItem(`${STORAGE_PREFIX}:volume`) || 70);
+    let difficulty = localStorage.getItem(`${STORAGE_PREFIX}:difficulty`) || "normal";
+    let visual = localStorage.getItem(`${STORAGE_PREFIX}:visual`) || "vis-high";
+    let tileId = 0;
+    let timer = null;
+    let state = null;
+    let previous = null;
+
+    function createState() {
+      return {
+        tiles: [],
+        score: 0,
+        best: getBest(),
+        undoLeft: DIFFICULTIES[difficulty].undo,
+        undoUsed: 0,
+        moves: 0,
+        max: 2,
+        startedAt: Date.now(),
+        elapsed: 0,
+        won: false,
+        continued: false,
+        over: false,
+        achievements: new Set(JSON.parse(localStorage.getItem(`${STORAGE_PREFIX}:achievements`) || "[]")),
+        lastMergeCount: 0
+      };
+    }
+
+    function cloneState(input) {
+      return {
+        ...input,
+        tiles: input.tiles.map(tile => ({ ...tile })),
+        achievements: new Set(input.achievements)
+      };
+    }
+
+    function serializeState(input) {
+      return {
+        ...input,
+        tiles: input.tiles.map(tile => ({ ...tile })),
+        achievements: [...input.achievements]
+      };
+    }
+
+    function restoreState(snapshot) {
+      const restored = {
+        ...snapshot,
+        tiles: snapshot.tiles.map(tile => ({ ...tile })),
+        achievements: new Set(snapshot.achievements)
+      };
+      state = restored;
+      previous = null;
+      updateAll();
+      play("undo");
+    }
+
+    function gridFromTiles(tiles = state.tiles) {
+      const grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+      tiles.forEach(tile => {
+        grid[tile.y][tile.x] = tile;
+      });
+      return grid;
+    }
+
+    function emptyCells() {
+      const grid = gridFromTiles();
+      const cells = [];
+      for (let y = 0; y < SIZE; y += 1) {
+        for (let x = 0; x < SIZE; x += 1) {
+          if (!grid[y][x]) cells.push({ x, y });
+        }
+      }
+      return cells;
+    }
+
+    function addRandomTile(markNew = true) {
+      const cells = emptyCells();
+      if (!cells.length) return null;
+      const cell = cells[Math.floor(Math.random() * cells.length)];
+      const value = Math.random() < DIFFICULTIES[difficulty].fourChance ? 4 : 2;
+      const tile = { id: ++tileId, x: cell.x, y: cell.y, value, new: markNew, merged: false };
+      state.tiles.push(tile);
+      state.max = Math.max(state.max, value);
+      return tile;
+    }
+
+    function resetGame() {
+      state = createState();
+      previous = null;
+      addRandomTile(false);
+      addRandomTile(false);
+      hideModal();
+      updateAll();
+      startTimer();
+      play("start");
+    }
+
+    function getBest() {
+      return Number(localStorage.getItem(bestKey()) || 0);
+    }
+
+    function bestKey() {
+      return `${STORAGE_PREFIX}:best:${difficulty}`;
+    }
+
+    function setBest(value) {
+      localStorage.setItem(bestKey(), String(value));
+    }
+
+    function move(direction) {
+      if (!state || state.over) return;
+      if (state.won && !state.continued) return;
+
+      clearTileFlags();
+      const before = serializeState(state);
+      const moved = slide(direction);
+      if (!moved) {
+        play("blocked");
+        return;
+      }
+
+      previous = before;
+      state.moves += 1;
+      state.elapsed = Date.now() - state.startedAt;
+      const added = addRandomTile(true);
+      state.max = Math.max(...state.tiles.map(tile => tile.value));
+      if (state.score > state.best) {
+        state.best = state.score;
+        setBest(state.best);
+      }
+
+      if (state.lastMergeCount > 0) play("merge");
+      else play("slide");
+      if (added) window.setTimeout(() => play("spawn"), 86);
+
+      if (state.lastMergeCount >= 2) showCombo(state.lastMergeCount);
+      updateAll();
+      checkAchievements();
+      checkEndState();
+    }
+
+    function clearTileFlags() {
+      state.tiles.forEach(tile => {
+        tile.new = false;
+        tile.merged = false;
+      });
+      state.lastMergeCount = 0;
+    }
+
+    function slide(direction) {
+      let moved = false;
+      let mergeScore = 0;
+      let mergeCount = 0;
+      const nextTiles = [];
+      const vectors = {
+        left: { lines: rows(), axis: "x", reverse: false },
+        right: { lines: rows(), axis: "x", reverse: true },
+        up: { lines: cols(), axis: "y", reverse: false },
+        down: { lines: cols(), axis: "y", reverse: true }
+      };
+      const vector = vectors[direction];
+      const grid = gridFromTiles();
+
+      vector.lines.forEach(line => {
+        const ordered = vector.reverse ? [...line].reverse() : line;
+        const existing = ordered.map(({ x, y }) => grid[y][x]).filter(Boolean);
+        const compressed = [];
+        for (let i = 0; i < existing.length; i += 1) {
+          const current = existing[i];
+          const next = existing[i + 1];
+          if (next && current.value === next.value) {
+            const merged = { ...current, id: ++tileId, value: current.value * 2, merged: true };
+            compressed.push(merged);
+            mergeScore += merged.value;
+            mergeCount += 1;
+            i += 1;
+          } else {
+            compressed.push({ ...current });
+          }
+        }
+
+        compressed.forEach((tile, index) => {
+          const target = ordered[index];
+          if (tile.x !== target.x || tile.y !== target.y || tile.merged) moved = true;
+          tile.x = target.x;
+          tile.y = target.y;
+          nextTiles.push(tile);
+        });
+      });
+
+      if (moved) {
+        state.tiles = nextTiles;
+        state.score += mergeScore;
+        state.lastMergeCount = mergeCount;
+      }
+      return moved;
+    }
+
+    function rows() {
+      return Array.from({ length: SIZE }, (_, y) =>
+        Array.from({ length: SIZE }, (_, x) => ({ x, y }))
+      );
+    }
+
+    function cols() {
+      return Array.from({ length: SIZE }, (_, x) =>
+        Array.from({ length: SIZE }, (_, y) => ({ x, y }))
+      );
+    }
+
+    function checkEndState() {
+      if (!state.won && state.max >= TARGET) {
+        state.won = true;
+        updateAll();
+        play("win");
+        showModal("CORE UNLOCKED", "2048 已通关。你可以继续把分数推高，或者重启一局换个模式。", true);
+        return;
+      }
+
+      if (!canMove()) {
+        state.over = true;
+        updateAll();
+        play("over");
+        showModal("SYSTEM LOCKED", "棋盘已无可用移动。成绩卡已生成，可以重开继续挑战。", false);
+      }
+    }
+
+    function canMove() {
+      if (emptyCells().length > 0) return true;
+      const grid = gridFromTiles();
+      for (let y = 0; y < SIZE; y += 1) {
+        for (let x = 0; x < SIZE; x += 1) {
+          const tile = grid[y][x];
+          if (x < SIZE - 1 && grid[y][x + 1]?.value === tile.value) return true;
+          if (y < SIZE - 1 && grid[y + 1][x]?.value === tile.value) return true;
+        }
+      }
+      return false;
+    }
+
+    function updateAll() {
+      renderTiles();
+      updateHud();
+      updateControls();
+      updateBadges();
+    }
+
+    function renderTiles() {
+      const existing = new Map(
+        [...els.tileLayer.children].map(node => [node.dataset.id, node])
+      );
+      const active = new Set();
+
+      state.tiles.forEach(tile => {
+        const id = String(tile.id);
+        let node = existing.get(id);
+        if (!node) {
+          node = document.createElement("div");
+          node.dataset.id = id;
+          els.tileLayer.appendChild(node);
+        }
+        active.add(id);
+        node.className = `tile${tile.new ? " new" : ""}${tile.merged ? " merged" : ""}${tile.value >= 512 ? " big" : ""}`;
+        node.textContent = tile.value;
+        node.style.setProperty("--x", tile.x);
+        node.style.setProperty("--y", tile.y);
+        const [bg, color, line, glow] = TILE_STYLES[tile.value] || TILE_STYLES[2048];
+        node.style.setProperty("--tile-bg", bg);
+        node.style.setProperty("--tile-color", color);
+        node.style.setProperty("--tile-line", line);
+        node.style.setProperty("--tile-glow", glow);
+        node.style.setProperty("--tile-size", tile.value >= 1024 ? "clamp(18px, 5vw, 36px)" : "clamp(24px, 6.6vw, 48px)");
+      });
+
+      existing.forEach((node, id) => {
+        if (!active.has(id)) node.remove();
+      });
+    }
+
+    function updateHud() {
+      setNumber(els.score, state.score);
+      setNumber(els.best, state.best);
+      setNumber(els.undoLeft, state.undoLeft);
+      els.modeText.textContent = DIFFICULTIES[difficulty].label;
+      els.maxTile.textContent = state.max;
+      els.moves.textContent = state.moves;
+      els.time.textContent = formatTime(currentElapsed());
+      els.stateText.textContent = state.over ? "SYSTEM LOCKED" : state.won ? "CORE UNLOCKED" : "CORE ONLINE";
+      els.resultScore.textContent = state.score;
+      els.resultMax.textContent = state.max;
+      els.resultMoves.textContent = state.moves;
+      els.resultTime.textContent = formatTime(currentElapsed());
+    }
+
+    function setNumber(el, value) {
+      const next = String(value);
+      if (el.textContent !== next) {
+        el.textContent = next;
+        el.classList.remove("bump");
+        void el.offsetWidth;
+        el.classList.add("bump");
+      }
+    }
+
+    function updateControls() {
+      [...els.difficultyGroup.querySelectorAll("button")].forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.difficulty === difficulty);
+      });
+      [...els.visualGroup.querySelectorAll("button")].forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.visual === visual);
+      });
+      els.undo.disabled = !previous || state.undoLeft <= 0 || state.over || (state.won && !state.continued);
+      els.soundOnIcon.style.display = muted ? "none" : "";
+      els.soundOffIcon.style.display = muted ? "" : "none";
+      els.soundText.textContent = muted ? "AUDIO OFF" : "AUDIO ON";
+      els.volume.value = String(volume);
+      els.volumeText.textContent = String(volume);
+    }
+
+    function updateBadges() {
+      const visible = [];
+      visible.push(`<span class="badge">MODE ${DIFFICULTIES[difficulty].label}</span>`);
+      if (state.max >= 512) visible.push(`<span class="badge accent">MAX ${state.max}</span>`);
+      if (state.lastMergeCount >= 2) visible.push(`<span class="badge">COMBO x${state.lastMergeCount}</span>`);
+      if (state.won) visible.push(`<span class="badge accent">2048 CLEAR</span>`);
+      els.eventFeed.innerHTML = visible.join("");
+    }
+
+    function currentElapsed() {
+      if (!state) return 0;
+      if (state.over || state.won && !state.continued) return state.elapsed || Date.now() - state.startedAt;
+      return Date.now() - state.startedAt;
+    }
+
+    function startTimer() {
+      window.clearInterval(timer);
+      timer = window.setInterval(() => {
+        if (!state) return;
+        if (!state.over && (!state.won || state.continued)) {
+          els.time.textContent = formatTime(currentElapsed());
+        }
+      }, 500);
+    }
+
+    function formatTime(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const mins = String(Math.floor(total / 60)).padStart(2, "0");
+      const secs = String(total % 60).padStart(2, "0");
+      return `${mins}:${secs}`;
+    }
+
+    function showCombo(count) {
+      els.combo.textContent = `COMBO x${count}`;
+      els.combo.classList.remove("show");
+      void els.combo.offsetWidth;
+      els.combo.classList.add("show");
+    }
+
+    function checkAchievements() {
+      let changed = false;
+      ACHIEVEMENTS.forEach(item => {
+        if (!state.achievements.has(item.id) && item.test(state)) {
+          state.achievements.add(item.id);
+          changed = true;
+          toast(`ACHIEVEMENT ${item.label}`);
+        }
+      });
+      if (changed) {
+        localStorage.setItem(`${STORAGE_PREFIX}:achievements`, JSON.stringify([...state.achievements]));
+      }
+    }
+
+    function toast(message) {
+      const node = document.createElement("div");
+      node.className = "toast";
+      node.textContent = message;
+      els.toastStack.appendChild(node);
+      window.setTimeout(() => node.remove(), 3000);
+    }
+
+    function showModal(title, copy, win) {
+      state.elapsed = currentElapsed();
+      els.modalTitle.textContent = title;
+      els.modalCopy.textContent = copy;
+      els.modalPrimary.textContent = win ? "继续挑战" : "复制战报";
+      els.modalSecondary.textContent = "新游戏";
+      els.modal.classList.add("show");
+    }
+
+    function hideModal() {
+      els.modal.classList.remove("show");
+    }
+
+    function useUndo() {
+      if (!previous || state.undoLeft <= 0) return;
+      const snapshot = previous;
+      snapshot.undoLeft = Math.max(0, snapshot.undoLeft - 1);
+      snapshot.undoUsed = (snapshot.undoUsed || 0) + 1;
+      restoreState(snapshot);
+    }
+
+    function applyVisual(next) {
+      document.body.classList.remove("vis-cool", "vis-high", "vis-terminal");
+      document.body.classList.add(next);
+      visual = next;
+      localStorage.setItem(`${STORAGE_PREFIX}:visual`, visual);
+      updateControls();
+    }
+
+    function setDifficulty(next) {
+      if (difficulty === next) return;
+      difficulty = next;
+      localStorage.setItem(`${STORAGE_PREFIX}:difficulty`, difficulty);
+      resetGame();
+    }
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    }
+
+    function play(type) {
+      if (muted || volume <= 0) return;
+      ensureAudio();
+      const now = audioCtx.currentTime;
+      const master = audioCtx.createGain();
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime((volume / 100) * 0.16, now + 0.012);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      master.connect(audioCtx.destination);
+
+      const notes = {
+        start: [220, 330, 495],
+        slide: [190, 250],
+        merge: [260, 520],
+        spawn: [760],
+        blocked: [90],
+        undo: [360, 240],
+        win: [330, 495, 660, 990],
+        over: [180, 120, 70]
+      }[type] || [240];
+
+      notes.forEach((freq, index) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const start = now + index * 0.045;
+        const end = start + (type === "win" ? 0.2 : 0.12);
+        osc.type = type === "blocked" || type === "over" ? "sawtooth" : "triangle";
+        osc.frequency.setValueAtTime(freq, start);
+        if (type === "slide") osc.frequency.exponentialRampToValueAtTime(freq * 1.18, end);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.8, start + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(start);
+        osc.stop(end + 0.02);
+      });
+    }
+
+    function copyReport() {
+      const report = `NEON 2048 | ${DIFFICULTIES[difficulty].label} | Score ${state.score} | Max ${state.max} | Moves ${state.moves} | Time ${formatTime(currentElapsed())}`;
+      navigator.clipboard?.writeText(report).then(() => toast("战报已复制")).catch(() => toast(report));
+    }
+
+    function bindEvents() {
+      window.addEventListener("keydown", event => {
+        const keyMap = {
+          ArrowLeft: "left", a: "left", A: "left",
+          ArrowRight: "right", d: "right", D: "right",
+          ArrowUp: "up", w: "up", W: "up",
+          ArrowDown: "down", s: "down", S: "down"
+        };
+        const dir = keyMap[event.key];
+        if (dir) {
+          event.preventDefault();
+          move(dir);
+        }
+      });
+
+      let pointerStart = null;
+      els.boardWrap.addEventListener("pointerdown", event => {
+        pointerStart = { x: event.clientX, y: event.clientY };
+        els.boardWrap.setPointerCapture?.(event.pointerId);
+      });
+      els.boardWrap.addEventListener("pointerup", event => {
+        if (!pointerStart) return;
+        const dx = event.clientX - pointerStart.x;
+        const dy = event.clientY - pointerStart.y;
+        pointerStart = null;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 28) return;
+        move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
+      });
+
+      els.newGame.addEventListener("click", resetGame);
+      els.undo.addEventListener("click", useUndo);
+      els.mute.addEventListener("click", () => {
+        muted = !muted;
+        localStorage.setItem(`${STORAGE_PREFIX}:muted`, String(muted));
+        updateControls();
+        if (!muted) play("spawn");
+      });
+      els.volume.addEventListener("input", event => {
+        volume = Number(event.target.value);
+        localStorage.setItem(`${STORAGE_PREFIX}:volume`, String(volume));
+        if (volume > 0) muted = false;
+        updateControls();
+      });
+      els.volume.addEventListener("change", () => play("spawn"));
+
+      els.difficultyGroup.addEventListener("click", event => {
+        const button = event.target.closest("button[data-difficulty]");
+        if (button) setDifficulty(button.dataset.difficulty);
+      });
+      els.visualGroup.addEventListener("click", event => {
+        const button = event.target.closest("button[data-visual]");
+        if (button) applyVisual(button.dataset.visual);
+      });
+
+      els.modalPrimary.addEventListener("click", () => {
+        if (state.won && !state.continued) {
+          const elapsedBeforePause = currentElapsed();
+          state.continued = true;
+          state.elapsed = elapsedBeforePause;
+          state.startedAt = Date.now() - elapsedBeforePause;
+          hideModal();
+          updateAll();
+        } else {
+          copyReport();
+        }
+      });
+      els.modalSecondary.addEventListener("click", resetGame);
+    }
+
+    function setupMatrix() {
+      const canvas = document.getElementById("matrix");
+      const ctx = canvas.getContext("2d");
+      const symbols = "2048NEONCORE";
+      let columns = [];
+
+      function resize() {
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(window.innerWidth * ratio);
+        canvas.height = Math.floor(window.innerHeight * ratio);
+        canvas.style.width = `${window.innerWidth}px`;
+        canvas.style.height = `${window.innerHeight}px`;
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        columns = Array.from({ length: Math.ceil(window.innerWidth / 18) }, () => Math.random() * window.innerHeight);
+      }
+
+      function draw() {
+        ctx.fillStyle = "rgba(3, 5, 10, 0.12)";
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        ctx.font = "13px monospace";
+        columns.forEach((y, index) => {
+          const char = symbols[Math.floor(Math.random() * symbols.length)];
+          const x = index * 18;
+          ctx.fillStyle = index % 3 === 0 ? "rgba(255, 61, 242, 0.34)" : "rgba(50, 246, 255, 0.34)";
+          ctx.fillText(char, x, y);
+          columns[index] = y > window.innerHeight + Math.random() * 600 ? 0 : y + 18;
+        });
+        requestAnimationFrame(draw);
+      }
+
+      window.addEventListener("resize", resize);
+      resize();
+      draw();
+    }
+
+    bindEvents();
+    setupMatrix();
+    applyVisual(visual);
+    resetGame();
+  </script>
+</body>
+</html>
