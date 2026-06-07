@@ -4,6 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>zcc2048game</title>
+  <meta name="description" content="zcc2048game 是一个赛博风 2048 网页小游戏，支持三档难度、音效、触摸滑动和成绩分享。">
+  <meta name="theme-color" content="#06070c">
+  <meta property="og:title" content="zcc2048game">
+  <meta property="og:description" content="赛博风 2048 网页小游戏，挑战 2048 核心解锁。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://zcctech.github.io/zcc2048game/">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <style>
     :root {
       --bg: #06070c;
@@ -135,6 +143,41 @@
       grid-template-rows: auto 1fr auto;
       min-height: 620px;
       overflow: hidden;
+      isolation: isolate;
+    }
+
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      opacity: 0;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.34), transparent 18%),
+        radial-gradient(circle at 50% 50%, rgba(50, 246, 255, 0.34), transparent 42%),
+        linear-gradient(90deg, transparent, rgba(255, 61, 242, 0.18), transparent);
+    }
+
+    .stage.impact::before {
+      animation: impactFlash 420ms ease-out;
+    }
+
+    .stage.impact-heavy {
+      animation: stageKick 240ms ease-out;
+    }
+
+    @keyframes impactFlash {
+      0% { opacity: 0; transform: scale(0.96); }
+      28% { opacity: 1; transform: scale(1.01); }
+      100% { opacity: 0; transform: scale(1.08); }
+    }
+
+    @keyframes stageKick {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      24% { transform: translate3d(3px, -2px, 0); }
+      48% { transform: translate3d(-3px, 2px, 0); }
+      72% { transform: translate3d(2px, 1px, 0); }
     }
 
     .brand {
@@ -338,12 +381,43 @@
       text-transform: uppercase;
     }
 
+    .stage-meta {
+      min-width: 0;
+      display: grid;
+      gap: 8px;
+    }
+
     .core-dot {
       width: 9px;
       height: 9px;
       border-radius: 50%;
       background: var(--lime);
       box-shadow: 0 0 14px var(--lime);
+    }
+
+    .quick-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .quick-stat {
+      min-width: 74px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.045);
+      padding: 6px 8px;
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .quick-stat strong {
+      display: block;
+      margin-top: 2px;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1;
     }
 
     .combo {
@@ -577,6 +651,80 @@
       display: grid;
     }
 
+    .start-screen {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: none;
+      place-items: center;
+      padding: 22px;
+      background: rgba(2, 6, 12, 0.7);
+      backdrop-filter: blur(12px);
+    }
+
+    .start-screen.show {
+      display: grid;
+    }
+
+    .start-panel {
+      width: min(560px, 100%);
+      border-radius: var(--radius);
+      border: 1px solid color-mix(in srgb, var(--cyan) 42%, transparent);
+      background: var(--panel-strong);
+      box-shadow: 0 0 36px rgba(50, 246, 255, 0.2), inset 0 0 40px rgba(255, 255, 255, 0.035);
+      padding: 20px;
+    }
+
+    .start-title {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 44px);
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .start-copy {
+      margin: 10px 0 18px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .mode-card {
+      min-height: 136px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--text);
+      padding: 14px;
+      display: grid;
+      align-content: space-between;
+      text-align: left;
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .mode-card:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--cyan) 62%, transparent);
+      box-shadow: 0 0 22px rgba(50, 246, 255, 0.18);
+    }
+
+    .mode-card strong {
+      display: block;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .mode-card span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
     .modal-card {
       width: min(420px, 100%);
       border-radius: var(--radius);
@@ -597,6 +745,51 @@
       margin: 0 0 16px;
       color: var(--muted);
       line-height: 1.55;
+    }
+
+    .share-card {
+      position: relative;
+      overflow: hidden;
+      min-height: 120px;
+      margin: 0 0 14px;
+      border-radius: var(--radius);
+      border: 1px solid color-mix(in srgb, var(--pink) 42%, transparent);
+      background:
+        linear-gradient(135deg, rgba(50, 246, 255, 0.16), rgba(255, 61, 242, 0.14)),
+        rgba(255, 255, 255, 0.05);
+      padding: 14px;
+      box-shadow: inset 0 0 24px rgba(255, 255, 255, 0.05);
+    }
+
+    .share-card::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan), var(--pink), var(--lime));
+    }
+
+    .share-kicker {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .share-outcome {
+      margin-top: 8px;
+      font-size: 25px;
+      font-weight: 950;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .share-meta {
+      margin-top: 10px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.45;
     }
 
     .result-grid {
@@ -629,7 +822,7 @@
 
     .modal-actions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 8px;
     }
 
@@ -684,6 +877,14 @@
         gap: 12px;
       }
 
+      .stage {
+        order: 1;
+      }
+
+      .left-rail {
+        order: 2;
+      }
+
       .left-rail,
       .stage {
         min-height: 0;
@@ -717,6 +918,14 @@
 
       .mini-stats {
         justify-content: space-between;
+      }
+
+      .mode-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .mode-card {
+        min-height: 98px;
       }
     }
 
@@ -850,9 +1059,16 @@
       </section>
     </aside>
 
-    <section class="stage">
+    <section class="stage" id="stage">
       <header class="stage-header">
-        <span class="core-label"><span class="core-dot"></span><span id="stateText">CORE ONLINE</span></span>
+        <div class="stage-meta">
+          <span class="core-label"><span class="core-dot"></span><span id="stateText">CORE ONLINE</span></span>
+          <div class="quick-stats" aria-label="快速状态">
+            <span class="quick-stat">Score<strong id="quickScore">0</strong></span>
+            <span class="quick-stat">Max<strong id="quickMax">2</strong></span>
+            <span class="quick-stat">Time<strong id="quickTime">00:00</strong></span>
+          </div>
+        </div>
         <span class="combo" id="combo"></span>
       </header>
 
@@ -876,10 +1092,36 @@
         </div>
       </footer>
 
+      <div class="start-screen" id="startScreen" aria-live="polite">
+        <div class="start-panel">
+          <h2 class="start-title">Select Mode</h2>
+          <p class="start-copy">选择节奏后直接开局。简单适合通关，普通保留经典手感，困难会更频繁生成 4。</p>
+          <div class="mode-grid">
+            <button class="mode-card" type="button" data-start-difficulty="easy">
+              <strong>简单</strong>
+              <span>3 次撤销，4 出现概率低，适合第一次通关。</span>
+            </button>
+            <button class="mode-card" type="button" data-start-difficulty="normal">
+              <strong>普通</strong>
+              <span>经典节奏，1 次撤销，适合刷分和分享成绩。</span>
+            </button>
+            <button class="mode-card" type="button" data-start-difficulty="hard">
+              <strong>困难</strong>
+              <span>无撤销，4 出现更多，适合高压挑战。</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="modal" id="modal" aria-live="polite">
         <div class="modal-card">
           <h2 class="modal-title" id="modalTitle">CORE ONLINE</h2>
           <p class="modal-copy" id="modalCopy"></p>
+          <div class="share-card" id="shareCard">
+            <div class="share-kicker">zcc2048game result card</div>
+            <div class="share-outcome" id="shareOutcome">CORE ONLINE</div>
+            <div class="share-meta" id="shareMeta">普通 | Score 0 | Max 2 | 00:00</div>
+          </div>
           <div class="result-grid">
             <div class="result-item"><span>Score</span><strong id="resultScore">0</strong></div>
             <div class="result-item"><span>Max</span><strong id="resultMax">0</strong></div>
@@ -888,6 +1130,7 @@
           </div>
           <div class="modal-actions">
             <button class="primary" id="modalPrimary" type="button">继续挑战</button>
+            <button class="secondary" id="modalShare" type="button">复制战报</button>
             <button class="secondary" id="modalSecondary" type="button">新游戏</button>
           </div>
         </div>
@@ -930,6 +1173,7 @@
 
     const els = {
       body: document.body,
+      stage: document.getElementById("stage"),
       board: document.getElementById("board"),
       boardWrap: document.getElementById("boardWrap"),
       tileLayer: document.getElementById("tileLayer"),
@@ -940,6 +1184,9 @@
       maxTile: document.getElementById("maxTile"),
       moves: document.getElementById("moves"),
       time: document.getElementById("time"),
+      quickScore: document.getElementById("quickScore"),
+      quickMax: document.getElementById("quickMax"),
+      quickTime: document.getElementById("quickTime"),
       stateText: document.getElementById("stateText"),
       combo: document.getElementById("combo"),
       eventFeed: document.getElementById("eventFeed"),
@@ -953,14 +1200,18 @@
       volume: document.getElementById("volume"),
       volumeText: document.getElementById("volumeText"),
       soundText: document.getElementById("soundText"),
+      startScreen: document.getElementById("startScreen"),
       modal: document.getElementById("modal"),
       modalTitle: document.getElementById("modalTitle"),
       modalCopy: document.getElementById("modalCopy"),
+      shareOutcome: document.getElementById("shareOutcome"),
+      shareMeta: document.getElementById("shareMeta"),
       resultScore: document.getElementById("resultScore"),
       resultMax: document.getElementById("resultMax"),
       resultMoves: document.getElementById("resultMoves"),
       resultTime: document.getElementById("resultTime"),
       modalPrimary: document.getElementById("modalPrimary"),
+      modalShare: document.getElementById("modalShare"),
       modalSecondary: document.getElementById("modalSecondary"),
       toastStack: document.getElementById("toastStack")
     };
@@ -974,6 +1225,7 @@
     let timer = null;
     let state = null;
     let previous = null;
+    let awaitingStart = true;
 
     function createState() {
       return {
@@ -990,7 +1242,8 @@
         continued: false,
         over: false,
         achievements: new Set(JSON.parse(localStorage.getItem(`${STORAGE_PREFIX}:achievements`) || "[]")),
-        lastMergeCount: 0
+        lastMergeCount: 0,
+        lastMergedValue: 0
       };
     }
 
@@ -1052,15 +1305,33 @@
       return tile;
     }
 
-    function resetGame() {
+    function resetGame(options = {}) {
+      const openStart = options.openStart ?? false;
       state = createState();
       previous = null;
       addRandomTile(false);
       addRandomTile(false);
       hideModal();
+      awaitingStart = openStart;
+      if (awaitingStart) showStartScreen();
+      else hideStartScreen();
       updateAll();
       startTimer();
-      play("start");
+      if (!awaitingStart) play("start");
+    }
+
+    function startGame(nextDifficulty = difficulty) {
+      difficulty = nextDifficulty;
+      localStorage.setItem(`${STORAGE_PREFIX}:difficulty`, difficulty);
+      resetGame({ openStart: false });
+    }
+
+    function showStartScreen() {
+      els.startScreen.classList.add("show");
+    }
+
+    function hideStartScreen() {
+      els.startScreen.classList.remove("show");
     }
 
     function getBest() {
@@ -1077,6 +1348,7 @@
 
     function move(direction) {
       if (!state || state.over) return;
+      if (awaitingStart) return;
       if (state.won && !state.continued) return;
 
       clearTileFlags();
@@ -1097,7 +1369,10 @@
         setBest(state.best);
       }
 
-      if (state.lastMergeCount > 0) play("merge");
+      if (state.lastMergeCount > 0) {
+        play(state.lastMergedValue >= 512 ? "bigMerge" : "merge");
+        triggerImpact(state.lastMergedValue, state.lastMergeCount);
+      }
       else play("slide");
       if (added) window.setTimeout(() => play("spawn"), 86);
 
@@ -1113,12 +1388,14 @@
         tile.merged = false;
       });
       state.lastMergeCount = 0;
+      state.lastMergedValue = 0;
     }
 
     function slide(direction) {
       let moved = false;
       let mergeScore = 0;
       let mergeCount = 0;
+      let maxMergedValue = 0;
       const nextTiles = [];
       const vectors = {
         left: { lines: rows(), axis: "x", reverse: false },
@@ -1141,6 +1418,7 @@
             compressed.push(merged);
             mergeScore += merged.value;
             mergeCount += 1;
+            maxMergedValue = Math.max(maxMergedValue, merged.value);
             i += 1;
           } else {
             compressed.push({ ...current });
@@ -1160,6 +1438,7 @@
         state.tiles = nextTiles;
         state.score += mergeScore;
         state.lastMergeCount = mergeCount;
+        state.lastMergedValue = maxMergedValue;
       }
       return moved;
     }
@@ -1253,11 +1532,16 @@
       els.maxTile.textContent = state.max;
       els.moves.textContent = state.moves;
       els.time.textContent = formatTime(currentElapsed());
-      els.stateText.textContent = state.over ? "SYSTEM LOCKED" : state.won ? "CORE UNLOCKED" : "CORE ONLINE";
+      els.quickScore.textContent = state.score;
+      els.quickMax.textContent = state.max;
+      els.quickTime.textContent = formatTime(currentElapsed());
+      els.stateText.textContent = awaitingStart ? "SELECT MODE" : state.over ? "SYSTEM LOCKED" : state.won ? "CORE UNLOCKED" : "CORE ONLINE";
       els.resultScore.textContent = state.score;
       els.resultMax.textContent = state.max;
       els.resultMoves.textContent = state.moves;
       els.resultTime.textContent = formatTime(currentElapsed());
+      els.shareOutcome.textContent = state.won ? "CORE UNLOCKED" : state.over ? "SYSTEM LOCKED" : "CORE ONLINE";
+      els.shareMeta.textContent = `${DIFFICULTIES[difficulty].label} | Score ${state.score} | Max ${state.max} | ${formatTime(currentElapsed())}`;
     }
 
     function setNumber(el, value) {
@@ -1277,7 +1561,7 @@
       [...els.visualGroup.querySelectorAll("button")].forEach(btn => {
         btn.classList.toggle("active", btn.dataset.visual === visual);
       });
-      els.undo.disabled = !previous || state.undoLeft <= 0 || state.over || (state.won && !state.continued);
+      els.undo.disabled = awaitingStart || !previous || state.undoLeft <= 0 || state.over || (state.won && !state.continued);
       els.soundOnIcon.style.display = muted ? "none" : "";
       els.soundOffIcon.style.display = muted ? "" : "none";
       els.soundText.textContent = muted ? "AUDIO OFF" : "AUDIO ON";
@@ -1296,6 +1580,7 @@
 
     function currentElapsed() {
       if (!state) return 0;
+      if (awaitingStart) return state.elapsed || 0;
       if (state.over || state.won && !state.continued) return state.elapsed || Date.now() - state.startedAt;
       return Date.now() - state.startedAt;
     }
@@ -1304,8 +1589,9 @@
       window.clearInterval(timer);
       timer = window.setInterval(() => {
         if (!state) return;
-        if (!state.over && (!state.won || state.continued)) {
+        if (!awaitingStart && !state.over && (!state.won || state.continued)) {
           els.time.textContent = formatTime(currentElapsed());
+          els.quickTime.textContent = formatTime(currentElapsed());
         }
       }, 500);
     }
@@ -1322,6 +1608,15 @@
       els.combo.classList.remove("show");
       void els.combo.offsetWidth;
       els.combo.classList.add("show");
+    }
+
+    function triggerImpact(value, count) {
+      if (value < 128 && count < 2) return;
+      els.stage.classList.remove("impact", "impact-heavy");
+      void els.stage.offsetWidth;
+      els.stage.classList.add("impact");
+      if (value >= 512 || count >= 3) els.stage.classList.add("impact-heavy");
+      window.setTimeout(() => els.stage.classList.remove("impact", "impact-heavy"), 460);
     }
 
     function checkAchievements() {
@@ -1350,8 +1645,9 @@
       state.elapsed = currentElapsed();
       els.modalTitle.textContent = title;
       els.modalCopy.textContent = copy;
-      els.modalPrimary.textContent = win ? "继续挑战" : "复制战报";
-      els.modalSecondary.textContent = "新游戏";
+      els.modalPrimary.textContent = win ? "继续挑战" : "再开一局";
+      els.modalSecondary.textContent = "换模式";
+      updateHud();
       els.modal.classList.add("show");
     }
 
@@ -1379,7 +1675,7 @@
       if (difficulty === next) return;
       difficulty = next;
       localStorage.setItem(`${STORAGE_PREFIX}:difficulty`, difficulty);
-      resetGame();
+      resetGame({ openStart: awaitingStart });
     }
 
     function ensureAudio() {
@@ -1403,6 +1699,7 @@
         start: [220, 330, 495],
         slide: [190, 250],
         merge: [260, 520],
+        bigMerge: [180, 360, 720],
         spawn: [760],
         blocked: [90],
         undo: [360, 240],
@@ -1428,9 +1725,27 @@
       });
     }
 
+    function buildReport() {
+      const outcome = state.won ? "通关" : state.over ? "结束" : "挑战中";
+      return [
+        "zcc2048game",
+        `状态：${outcome}`,
+        `模式：${DIFFICULTIES[difficulty].label}`,
+        `分数：${state.score}`,
+        `最大方块：${state.max}`,
+        `步数：${state.moves}`,
+        `用时：${formatTime(currentElapsed())}`,
+        "https://zcctech.github.io/zcc2048game/"
+      ].join("\n");
+    }
+
     function copyReport() {
-      const report = `NEON 2048 | ${DIFFICULTIES[difficulty].label} | Score ${state.score} | Max ${state.max} | Moves ${state.moves} | Time ${formatTime(currentElapsed())}`;
-      navigator.clipboard?.writeText(report).then(() => toast("战报已复制")).catch(() => toast(report));
+      const report = buildReport();
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(report).then(() => toast("战报已复制")).catch(() => toast(report));
+      } else {
+        toast(report);
+      }
     }
 
     function bindEvents() {
@@ -1462,7 +1777,12 @@
         move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
       });
 
-      els.newGame.addEventListener("click", resetGame);
+      els.startScreen.addEventListener("click", event => {
+        const button = event.target.closest("button[data-start-difficulty]");
+        if (button) startGame(button.dataset.startDifficulty);
+      });
+
+      els.newGame.addEventListener("click", () => resetGame({ openStart: true }));
       els.undo.addEventListener("click", useUndo);
       els.mute.addEventListener("click", () => {
         muted = !muted;
@@ -1496,10 +1816,16 @@
           hideModal();
           updateAll();
         } else {
-          copyReport();
+          resetGame({ openStart: false });
         }
       });
-      els.modalSecondary.addEventListener("click", resetGame);
+      els.modalShare.addEventListener("click", copyReport);
+      els.modalSecondary.addEventListener("click", () => resetGame({ openStart: true }));
+    }
+
+    function registerServiceWorker() {
+      if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
 
     function setupMatrix() {
@@ -1540,7 +1866,8 @@
     bindEvents();
     setupMatrix();
     applyVisual(visual);
-    resetGame();
+    registerServiceWorker();
+    resetGame({ openStart: true });
   </script>
 </body>
 </html>

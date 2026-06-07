@@ -1,0 +1,19 @@
+{
+  "name": "zcc2048game",
+  "short_name": "ZCC2048",
+  "description": "Cyber-style 2048 web game with difficulty modes, sound, touch controls, and shareable results.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#06070c",
+  "theme_color": "#06070c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
